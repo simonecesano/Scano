@@ -88,7 +88,7 @@ get '/scans' => [format => ['json'] ] => sub {
 				     map { $_->[0] }
 				     sort { $b->[1] <=> $a->[1] } 				     
 				     map { [ $_->basename, $_->stat->mtime ] }
-				     grep { /\.jpg$/ } $folder->children
+				     grep { $_->basename =~ /^scan.+\.jpg$/ } $folder->children
 				    ) ] });
 };
 
@@ -96,68 +96,6 @@ get '/scans';
 
 app->start;
 __DATA__
-
-@@ fii.html.ep
-% layout 'default';
-% title 'Welcome';
-<style>
-  body { background-color: Gainsboro }
-  * { font-family: 'Lato', sans-serif }
-  .button, .form {
-      padding: 30px; margin: 15px; font-size: 6vw
-  }
-  .button { color: white; background-color: RoyalBlue; text-align: center }
-  h4:first-child { margin-top: 0px; }
-  h4 {
-      margin-left: -30px; margin-right: -30px; margin-bottom: 24px; margin-top: 24px;
-      padding-top: 6px; padding-bottom: 6px;
-      color: white; background-color: DarkGray; text-align: center; 
-  }
-  label { min-width: 4em; display:inline-block }
-</style>
-<div class="form"><form id="settings">
-    <h4>Resolution</h4>
-
-    % my @res = qw(150 300 600);
-% for (qw/low medium high/) {
-    <div>
-      <input type="radio" id="<%= $_ %>_res" name="resolution" value="<%= $res[0] %>">
-      <label for="<%= $_ %>_res"><%= $_ %> (<%= shift @res %> dpi)</label>
-    </div>
-    % }
-    <h4>Source</h4>
-    <div>
-    % for (qw/plate feeder/) {
-      <input type="radio" id="<%= $_ %>_src" name="source" value="<%= $_ %>">
-      <label for="<%= $_ %>_src"><%= $_ %></label>
-    % }
-    </div>
-    <h4>Print scans</h4>
-    <div>
-    % for (qw/yes no/) {
-      <input type="radio" id="<%= $_ %>_print" name="print" value="<%= $_ %>">
-      <label for="<%= $_ %>_print"><%= $_ %></label>
-    % }
-    </div>
-  </form>
-</div>
-<div class="button" id="scan">scan</div>
-<script>
-    $(function(){
-	    /mobile/i.test(navigator.userAgent) && setTimeout(function () {
-		window.scrollTo(0, 1);
-	    }, 1000);
-	$('#medium_res, #feeder_src, #no_print').prop('checked', true);
-	$('.button').click(function(e){
-	    // console.log($(e.target).attr('id'));
-	    // console.log($('form').serialize());
-	    $.post("<%= url_for('/') %>" + '?' + $('form').serialize(),
-		   function(d){
-		       console.log(d);
-		   })
-	})
-    })
-</script>
 
 @@ layouts/default.html.ep
 <!DOCTYPE html>
@@ -178,22 +116,27 @@ __DATA__
 <style>
   body { background-color: Gainsboro }
   * { font-family: 'Lato', sans-serif }
-  .button, .form {
-      padding: 30px; margin: 15px; font-size: 6vw
-  }
-  .scans {
-      padding: 10px; margin: 5px; font-size: 6vw
-  }
+  .button, .form { padding: 30px; margin: 15px; font-size: 6vw }
+  .scans { padding: 10px; margin: 5px; font-size: 6vw }
   img.scan { width: 100% }
   .button { color: white; background-color: RoyalBlue; text-align: center }
-  h4:first-child { margin-top: 0px; }
+
   h4 {
       margin-left: -30px; margin-right: -30px; margin-bottom: 24px; margin-top: 24px;
       padding-top: 6px; padding-bottom: 6px;
       color: white; background-color: DarkGray; text-align: center; 
   }
+  h4:first-child { margin-top: 0px; }
+
   label { min-width: 4em; display:inline-block }
-    .nav { display: inline-block; height: 2em; width: 2em; text-align: center; background-color: RoyalBlue; font-size: 8vw; color: white }
+  .nav {
+      height: 2em; width: 2em; 
+      text-align: center; vertical-align: middle;
+  }
+  .nav#p { float: left;background-color: RoyalBlue;color: white; }
+  .nav#n { float: right;background-color: RoyalBlue; color: white; }
+  .nav#file { margin:0 auto; width: 6em; background-color: rgb(0,0,0,0); color: black }
+  .nav span { vertical-align: middle; text-align: center; font-size: 1.2em  }
 </style>
 @@ index.html.ep
 % layout 'default';
@@ -245,8 +188,9 @@ __DATA__
 %= include 'style';
 <div class="scans" id="scans">
 <img id="scan" class="scan" src="http://192.168.1.144/scans/scan2040.jpg">
-<div class="nav" id="p">&laquo;</div>
-<div class="nav" id="n">&raquo;</div>
+<div class="nav" id="p"><span>&laquo;</span></div>
+<div class="nav" id="n"><span>&raquo;</span></div>
+<div class="nav" id="file"><span>file</span></div>
 </div>
 <script>
     $(function(){
@@ -256,8 +200,8 @@ __DATA__
 	$.get("<%= url_for('/scans') . '.json' %>",
 	      function(d){
 		  scans = d.scans;
-		  console.log(scans);
 		  $('#scan').attr('src', 'http://192.168.1.144/scans/' +  scans[i])
+		  $('#file').html(scans[i]);
 	      }
 	     )
 	$('#p').click(function(){
@@ -267,12 +211,14 @@ __DATA__
 		i++;
 		console.log(scans[i])
 		$('#scan').attr('src', 'http://192.168.1.144/scans/' +  scans[i])
+		$('#file').html(scans[i]);
 	    }
 	})
 	$('#n').click(function(){
 	    if (i > 0) {
 		i--;
 		$('#scan').attr('src', 'http://192.168.1.144/scans/' +  scans[i])
+		$('#file').html(scans[i]);
 	    }
 	})
     })
