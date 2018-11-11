@@ -35,9 +35,10 @@ post '/' => sub {
 	if ($c->param('source') eq 'plate') {
 	    $qx = "scanimage -v --source Flatbed -d $scanner --mode Color --resolution $res --format jpeg -x 215.9 -y 296.9 > $out";
 	} elsif ($c->param('source') eq 'feeder') {
-	    $qx = "scanimage -v --batch=scan%04d.jpg --batch-start=$n --batch-print -d $scanner --mode Color --source ADF --resolution $res --format jpeg -x 215.9 -y 296.9";
+	    my $options = '--batch-print --mode Color --source ADF --format jpeg';
+	    $qx = "scanimage -v --batch=$folder/scan%04d.jpg --batch-start=$n -d $scanner --resolution $res $options -x 215.9 -y 296.9";
 	}
-	app->log->info($qx);
+	app->log->info("Scanning with command\n" . $qx);
 	my $subprocess = Mojo::IOLoop::Subprocess->new;
 	$subprocess->run(
 			 sub {
@@ -54,12 +55,13 @@ post '/' => sub {
 				     @results =
 					 map { sprintf '%s/scan%04d.jpg', $folder, $_ }
 					 map { /(\d{4,4})/; $1 }
-					 grep { /^scanned/i } @results
+					 grep { /^scanned/i }
+					 @results;
 				 }
-			     }
-			     for (@results) {
-				 app->log->info($_);
-				 qx/lp $_/;
+				 for (@results) {
+				     app->log->info("printing $_");
+				     qx/lp $_/;
+				 }
 			     }
 			 }
 			);
@@ -204,11 +206,11 @@ __DATA__
       <label for="low_res">low (150 dpi)</label>
     </div>
     <div>
-      <input type="radio" id="medium_res" name="resolution" value="300">
+      <input type="radio" id="medium_res" name="resolution" value="300" checked>
       <label for="medium_res">medium (300 dpi)</label>
     </div>
     <div>
-      <input type="radio" id="high_res" name="resolution" value="600" checked>
+      <input type="radio" id="high_res" name="resolution" value="600">
       <label for="high_res">high (600 dpi)</label>
     </div>
     <h4>Source</h4>
